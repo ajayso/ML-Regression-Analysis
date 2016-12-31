@@ -4,7 +4,8 @@ install.packages("devtools")
 library(devtools)
 install_github("quandl/quandl-r")
 library(TTR)
-
+source('C:/start/ML-Regression-Analysis/functions.r')
+Quandl.api_key("Td2oA_m_SYUdi1X9Htdi")
 goldpricesAllUp =  Quandl("LBMA/GOLD")
 
 # Calculate the ROC 
@@ -13,18 +14,18 @@ yy = ROC(roc, type="discrete")*100
 
 
 gpdata = data.frame(goldpricesAllUp$Date,goldpricesAllUp$`USD (AM)`,yy)
-gpdata = gpdata[gpdata$goldpricesAllUp.Date > "2015-01-01",]
+gpdata = gpdata[gpdata$goldpricesAllUp.Date > "2014-01-01",]
 model = lm ( goldpricesAllUp..USD..AM..~., data = gpdata)
+# linear equation 
 paste('y =', coef(model)[[2]], '* x', '+', coef(model)[[1]])
 
 slopedata <- array(1:length(gpdata$goldpricesAllUp.Date))
-print("I am the winner")
 slopedata = slope(gpdata)
 # Calculate the Slope 
 
 slope = function (data){
   slopedata <- array(1:length(data$goldpricesAllUp.Date))
- 
+  
   for  (i in 1: length(data$goldpricesAllUp.Date)){
     
     
@@ -84,47 +85,47 @@ Stochastic_Oscillator  = function (data, n ){
   BuySellFlag  <- array(1:length(data$goldpricesAllUp.Date))
   #Ln = lowest price over past n days
   goldpricedata = data$goldpricesAllUp..USD..AM..
- 
+  
   #Hn= highest price over past n days
   
   
   for  (i in 1: length(data$goldpricesAllUp.Date)){
     if (n+i <length(data$goldpricesAllUp.Date)){
-    
+      
       
       dx = n+i
-   
+      
       xdata = goldpricedata[i:dx]
-    
+      
       Ln = which.min(xdata)
       if (Ln==0){
         print("Asshole")
       }
-     
+      
       Hn = which.max(xdata)
-     
+      
       #P(x) = price on day x 
       px = data[i,2]
       # %K = (P(x) ??? Ln)/ (Hn ??? Ln) x 100%..
       pa = px -xdata[Ln]
-     
+      
       na = xdata[Hn]-xdata[Ln]
-     
+      
       ma= pa/na
       
       StochasticOscillator[i] = ma *100
       if (is.na(StochasticOscillator[i]))
         next
       if (StochasticOscillator[i] < 20)
-        BuySellFlag[i]= 1
+        BuySellFlag[i]= "Buy"
       else 
-        BuySellFlag[i]= 0
+        BuySellFlag[i]= "Hold"
       
       if (StochasticOscillator[i] > 80)
-        BuySellFlag[i]= -1
+        BuySellFlag[i]= "Sell"
     }
     else {
-      BuySellFlag[i]= -2
+      BuySellFlag[i]= "Hold"
     }
   }
   
@@ -134,30 +135,24 @@ Stochastic_Oscillator  = function (data, n ){
 
 
 xfinaldata = data.frame(gpdata, slopedata,roc_ratio,SO)
-xfinaldata= xfinaldata[!xfinaldata$BuySellFlag=="NoClassification",]
 
-#xfinaldata$BuySellFlag = as.factor(xfinaldata$BuySellFlag)
+
+xfinaldata$BuySellFlag = as.factor(xfinaldata$BuySellFlag)
 #xfinaldata= na.omit(xfinaldata)
-trainingdataLength = 0.6 * length(xfinaldata$goldpricesAllUp.Date)
-testingdatalength = 0.4 * length(xfinaldata$goldpricesAllUp.Date)
+trainingdataLength = 0.8 * length(xfinaldata$goldpricesAllUp.Date)
+testingdatalength = 0.2 * length(xfinaldata$goldpricesAllUp.Date)
 train <- xfinaldata[1:trainingdataLength,]
-test <- xfinaldata[trainingdataLength:testingdatalength,]
+#test <- xfinaldata[trainingdataLength:length(xfinaldata$goldpricesAllUp.Date),]
+test <- xfinaldata[606:757,]
+test= na.omit(test)
 
-lr_model <- glm(train$BuySellFlag ~ train$goldpricesAllUp..USD..AM..+ train$yy+ train$slopedata + train$roc_ratio + train$StochasticOscillator,data=train)
+# Use Gaussian distribution this will require BuySell to be numeric....
+lr_model <- glm(BuySellFlag ~ goldpricesAllUp..USD..AM..+ yy+ slopedata  + StochasticOscillator,data=train, family=gaussian  )
 anova(lr_model, test="Chisq")
-
-library(pscl)
-pR2(lr_model)
-predict <- predict(lr_model,newdata= test, type = 'response')
-table(test$BuySellFlag, predict > 0.5)
+predict(lr_model, newdata = test, type="response")
 
 
-library(rpart)
-library(rpart.plot)
-library(rattle)					# Fancy tree plot
-library(rpart.plot)				# Enhanced tree plots
-library(RColorBrewer)				# Color selection for fancy tree plot
-library(party)					# Alternative decision tree algorithm
-library(partykit)				# Convert rpart object to BinaryTree
-library(caret)	
-fit <- rpart(BuySellFlag~train$goldpricesAllUp..USD..AM..+ train$yy + train$slopedata,method = "class",data=train)
+library(nnet)
+model = multinom(BuySellFlag ~ goldpricesAllUp..USD..AM..+ yy+ slopedata  + StochasticOscillator,data=train)
+summary(model)
+predict(model, type="probs", data.frame(test))
