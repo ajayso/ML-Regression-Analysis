@@ -186,3 +186,8 @@ predictMNL <- function(model, newdata) {
     return(ids)
   }
 }
+
+UpdateModel <- function(model, data){
+  modelupdated <- update(model, "BuySellFlag ~ goldpricesAllUp..USD..AM..+ yy+ slopedata  + StochasticOscillator", data)
+  return(modelupdated)
+}
